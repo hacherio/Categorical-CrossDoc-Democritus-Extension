@@ -592,7 +592,7 @@ class DemocritusBatchAgenticRunner:
 
     def _make_document(self, pdf_path: Path, *, index: int) -> DemocritusBatchDocument:
         resolved_pdf_path = pdf_path.resolve()
-        run_name = f"{index:04d}_{_slugify(resolved_pdf_path.stem)}_{_sha256_prefix(resolved_pdf_path)}"
+        run_name = f"{index:04d}_{_slugify(resolved_pdf_path.stem, maxlen=32)}_{_sha256_prefix(resolved_pdf_path)}"
         run_outdir = self.config.outdir / run_name
         runner = self._build_document_runner(
             pdf_path=resolved_pdf_path,

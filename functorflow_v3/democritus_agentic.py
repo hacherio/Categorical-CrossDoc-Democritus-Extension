@@ -409,6 +409,10 @@ class DemocritusAgenticRunner:
             env["CLIFF_LLM_USAGE_ROUTE"] = "democritus"
             env["CLIFF_LLM_USAGE_RUN"] = self.config.domain_name
             env["CLIFF_LLM_USAGE_OUTDIR"] = str(self.outdir)
+        env["PYTHONUTF8"] = "1"         # no more UnicodeEncodeError on Windows
+        env["PYTHONIOENCODING"] = "utf-8"
+        # reads GROQ_API_KEY / OPENAI_BASE_URL / OPENAI_MODEL from your shell and
+        # passes them into every subprocess automatically        
         return {**base, **env}
 
     def _run_subprocess_agent(

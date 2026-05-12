@@ -134,6 +134,8 @@ def main() -> None:
                     "artifact_path": str(artifact_path) if artifact_path else None,
                 }
             else:
+                if not args.democritus_assets_dir:
+                    args.democritus_assets_dir = str(outdir / "assets")
                 result = _build_router_from_args_with_outdir(args, query=args.query, outdir=outdir).run()
                 artifact_path = _artifact_path_for_result(result)
                 needs_clarification = _result_needs_clarification(result)

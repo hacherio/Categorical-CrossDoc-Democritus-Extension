@@ -918,7 +918,7 @@ def _predicted_artifact_path(outdir: Path, decision: FF2RouteDecision) -> Path |
     if decision.route_name == "democritus":
         # The live session preview should point at the batch GUI because it exists
         # throughout the run; the corpus synthesis artifact is selected after completion.
-        return resolved_outdir / "democritus" / "democritus_runs" / "democritus_gui.html"
+        return resolved_outdir / "democritus" / "runs" / "democritus_gui.html"
     if decision.route_name == "product_feedback":
         return resolved_outdir / "product_feedback" / "product_feedback_run" / "product_feedback_dashboard.html"
     if decision.route_name == "culinary_tour":
@@ -1083,6 +1083,7 @@ def _session_query_outdir(session_outdir: Path, *, run_id: str, query: str) -> P
     root = session_outdir.expanduser()
     if not root.is_absolute():
         root = (Path.cwd() / root).resolve()
+    root.mkdir(parents=True, exist_ok=True)   # ← ADD THIS LINE
     run_name = f"{run_id}-{timestamp}-{_slugify_query(query)}"
     try:
         if root.exists() and root.is_dir():

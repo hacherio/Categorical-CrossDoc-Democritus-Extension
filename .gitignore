@@ -13,3 +13,4 @@ dist/
 *.egg-info/
 third_party/
 /tmp/
+cliff_results_v2/
