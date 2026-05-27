@@ -1,213 +1,228 @@
-# Categorical Causal Discovery — Cross-Document Extension for CLIFF/Democritus
-
-> **CMPSCI 692CT: Category Theory for AGI · University of Massachusetts Amherst**
-> Forked from [sridharmahadevan/CLIFF_CatAgi](https://github.com/sridharmahadevan/CLIFF_CatAgi)
-
----
-
-## What This Project Does
-
-This repository extends the [CLIFF](https://github.com/sridharmahadevan/CLIFF_CatAgi) (Conscious Layer Interface in FunctorFlow) system with a **categorical causal discovery layer** that sits on top of the Democritus agent.
-
-CLIFF's Democritus subsystem retrieves scientific documents and extracts structured causal relationships into a SQLite database (CSQL). It answers: *which causal claims are explicitly stated across documents?*
-
-This extension answers the follow-up question:
-
-> **Given the claims documents do state, what additional causal relationships are mathematically forced to exist — but no document ever directly wrote down?**
-
-Two category-theoretic mechanisms close this gap:
-
-### 1. Kan Extension
-For every two-step chain **A → B → C** supported by retrieved papers, the system infers **A → C** with a conservative geometric-mean confidence, even if no paper ever stated that connection directly. This is the right Kan extension of the stated-claims functor along the path inclusion functor.
-
-```
-conf(A → C) = √(conf(A → B) × conf(B → C))
-```
-
-### 2. Sheaf Colimit
-When one paper asserts **A → B** and another asserts **B → A**, these are conflicting local sections of the causal presheaf over the site {A, B}. Rather than discarding one, the system resolves the contradiction as a **bidirectional feedback loop A ↔ B** using harmonic-mean confidence.
-
-```
-conf(A ↔ B) = 2pq / (p + q)
-```
+# CLIFF AGI Extension Project
+### Categorical Causal Discovery via Kan Extension and Sheaf Colimit
+**CMPSCI 692CT — Category Theory for AGI — UMass Amherst**
 
 ---
 
-## Key Results
+## What This Project Does (Plain English)
 
-Applied to a corpus of three documents on **sleep deprivation, cortisol, and related conditions**:
+Imagine you have three research papers on GLP-1 drugs (weight-loss drugs like Ozempic):
 
-| Metric | Value |
-|---|---|
-| Source documents | 3 |
-| Raw causal edges (pre-filter) | 401 |
-| Domain-filtered edges | 177 |
-| Edges with ≥1 successor | 83 / 177 (47%) |
-| **Kan Extension novel claims** | **40** |
-| **Sheaf Colimit feedback loops** | **20** |
-| **Total novel claims** | **60** |
+- **Paper 1** says: *"GLP-1 drugs reduce inflammation."*
+- **Paper 2** says: *"Inflammation causes cardiovascular risk."*
+- **Paper 3** says nothing about GLP-1 and cardiovascular risk directly.
 
-Example Kan Extension claim (never stated in any source document):
+A human reading all three would immediately infer: *"GLP-1 drugs must therefore reduce cardiovascular risk."*
+No single paper said that — but it's **forced by logic**.
+
+This project automates that reasoning using **category theory** — the branch of mathematics that studies how structures compose and how information flows between systems.
+It takes the causal claims already stored in a CLIFF/Democritus database and discovers **new truths** that no paper ever explicitly stated, using two mathematical engines.
+
+---
+
+## The Two Core Ideas (Category Theory)
+
+### 1. Kan Extension — "Path Composition"
+
+**The math:** If functor `F: StatedCat → CausalSpace` knows `A→B` and `B→C`, the *right Kan extension* of `F` along the inclusion `J: StatedCat ↪ AllPathsCat` universally entails `A→C`.
+
+**In plain English:** If we know two causal steps that chain together (A causes B, B causes C), then category theory *forces* the conclusion A causes C — even if no paper wrote that sentence. This is called "path composition." The confidence of the new claim is the **geometric mean** of the two steps (e.g., `√(0.92 × 0.85) = 0.88`), which is the same formula used in the Judo Calculus chapter of the course textbook for combining evidence.
+
+**Example discovery:**
+- Paper 1: `glp-1 receptor agonist → reduces → body weight` (conf 0.95)
+- Paper 2: `body weight → reduces → cardiovascular risk` (conf 0.88)
+- **Novel claim:** `glp-1 receptor agonist → indirectly_reduces → cardiovascular risk` (conf 0.91) ← *No paper said this!*
+
+### 2. Sheaf Colimit — "Resolving Contradictions"
+
+**The math:** When paper S₁ asserts `A→B` and paper S₂ asserts `B→A`, each provides a *local section* of the causal presheaf over the set `{A, B}`. These sections are incompatible — they cannot be glued globally. The *colimit* of the diagram of conflicting sections is the **universal causal model** `A ↔ B` (bidirectional feedback loop) that both papers factor through.
+
+**In plain English:** When two papers directly contradict each other about causation (paper 1 says inflammation causes insulin resistance; paper 2 says insulin resistance causes inflammation), instead of picking a winner, the math says *both are right* — they're in a feedback loop. The colimit finds the most general model consistent with both papers. Confidence uses the **harmonic mean** (`2pq/(p+q)`).
+
+**Example discovery:**
+- Paper 2: `inflammation → causes → insulin resistance` (conf 0.85)
+- Paper 3: `insulin resistance → causes → inflammation` (conf 0.80)
+- **Novel claim:** `inflammation ↔ insulin resistance` bidirectional feedback (conf 0.82) ← *No single paper said "feedback loop"!*
+
+---
+
+## Project Architecture
+
 ```
-[0.33] childhood obesity –[increases]→ insulin resistance –[causes]→ higher blood pressure
-```
-
-Example Sheaf Colimit feedback loop:
-```
-[0.44] sleep deprivation ↔ cognitive performance in adults
+CLIFF_AGI-Extension-Project/
+│
+├── functorflow_v3/                  ← The base CLIFF system (from the course repo)
+│   ├── cliff.py                     ← Main CLIFF server (runs in browser)
+│   ├── cliff_worker.py              ← Worker process for one query
+│   ├── democritus_agentic.py        ← Democritus agent (downloads papers, builds cSQL)
+│   │
+│   ├── democritus_discovery.py      ← ★ NEW: Kan Extension + Sheaf Colimit engine
+│   ├── seed_csql_from_pdfs.py       ← ★ NEW: Offline PDF → cSQL seeder (no API key)
+│   └── run_glp1_discovery.py        ← ★ NEW: Full pipeline runner
+│
+├── cliff_results_v2/                ← CLIFF output directory (created at runtime)
+│   └── <run-dir>/
+│       ├── democritus/
+│       │   ├── acquired_pdfs/       ← PDFs downloaded by Democritus
+│       │   └── democritus_csql.sqlite  ← The causal claims database
+│       └── discovery/
+│           ├── discovery_summary.json  ← Machine-readable results
+│           └── discovery_dashboard.html ← Visual results dashboard
+│
+└── Category-Theory-for-AGI-UMass-CMPSCI-692CT/  ← Course repo (for CLIFF)
 ```
 
 ---
 
-## Architecture
+## The Three New Files (What Each Does)
 
-```
-User Query (CLIFF Browser)
-        ↓
-   CLIFF Router
-        ↓
-  Democritus Agent
-  ├── Downloads & parses papers
-  ├── Extracts causal claims
-  └── Writes → democritus_csql.sqlite
-        ↓
-  run_causal_discovery.py          ← NEW (this extension)
-  ├── Locates CSQL database
-  ├── Reads run metadata & query
-  ├── Applies domain filter
-  ├── democritus_discovery.py      ← NEW (this extension)
-  │   ├── Kan Extension engine
-  │   └── Sheaf Colimit engine
-  └── Writes → discovery_dashboard.html + discovery_summary.json
-```
-
-### New Files Added
-
-| File | Purpose |
-|---|---|
-| `functorflow_v3/democritus_discovery.py` | Core categorical modules: Kan Extension, Sheaf Colimit, SQLite reader, JSON/HTML output |
-| `functorflow_v3/run_causal_discovery.py` | Orchestrator: locates CSQL database, reads run metadata, launches discovery, opens browser |
-
-Modified to integrate with the new files: `query_router_agentic.py`, `democritus_batch_agentic.py`, `democritus_agentic.py`, `cliff_worker.py`.
+| File | Role |
+|------|------|
+| `democritus_discovery.py` | The **math engine**. Reads the SQLite database, runs Kan Extension and Sheaf Colimit, produces JSON + HTML output. This is the core contribution. |
+| `seed_csql_from_pdfs.py` | The **data prep tool**. Takes PDF papers, extracts causal claims using regex patterns, and writes them to SQLite. Works offline — no OpenAI API key needed. |
+| `run_glp1_discovery.py` | The **pipeline orchestrator**. Glues everything together: optionally runs CLIFF, finds/seeds the database, calls the discovery engine, and opens the results. |
 
 ---
 
-## Installation
+## How the Data Flows
+
+```
+PDFs (research papers)
+        │
+        ▼
+seed_csql_from_pdfs.py
+  [regex pattern matching]
+  "GLP-1 reduces body weight" → {subj: "glp-1 receptor agonist", rel: "reduces", obj: "body weight", conf: 0.95}
+        │
+        ▼
+democritus_csql.sqlite
+  [aggregated_edges view]
+  groups claims by (subj, rel, obj), counts document support
+        │
+        ▼
+democritus_discovery.py
+  ┌─────────────────────────────────────────────────────┐
+  │  Kan Extension Engine                               │
+  │  For every A→B and B→C: entail A→C                  │
+  │  conf(A→C) = √(conf(A→B) × conf(B→C))              │
+  └─────────────────────────────────────────────────────┘
+  ┌─────────────────────────────────────────────────────┐
+  │  Sheaf Colimit Engine                               │
+  │  For every A→B and B→A: resolve to A↔B             │
+  │  conf = 2pq/(p+q)  (harmonic mean)                  │
+  └─────────────────────────────────────────────────────┘
+        │
+        ▼
+discovery_dashboard.html  +  discovery_summary.json
+```
+
+---
+
+## How to Run It
+
+### Prerequisites
 
 ```bash
-git clone https://github.com/hacherio/Categorical-CrossDoc-Democritus-Extension
-cd Categorical-CrossDoc-Democritus-Extension
-
-python3 -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-
-pip install -r requirements.txt
-pip install -e .
+pip install pdfplumber    # for PDF text extraction (pypdf works as fallback)
 ```
 
----
-
-## Usage
-
-### Step 1 — Run CLIFF and submit a query
+### Step 1: Run CLIFF and submit a query
 
 ```bash
-python -m functorflow_v3.cliff \
-  --outdir ./cliff_results_v2 \
-  --course-repo-root "/path/to/Category-Theory-for-AGI-UMass-CMPSCI-692CT"
+cd C:\Users\hache\Documents\GitHub\CLIFF_AGI-Extension-Project
+
+python -m functorflow_v3.cliff --outdir ./cliff_results_v2 `
+  --course-repo-root "C:\Users\hache\Documents\GitHub\Category-Theory-for-AGI-UMass-CMPSCI-692CT"
 ```
 
-Then open the CLIFF browser UI and submit your query, for example:
+Open the browser at `http://127.0.0.1:<port>/` and submit:
+> *"Find me 3 recent studies on GLP-1 receptor agonists and their effects on obesity, diabetes, cardiovascular risk, and inflammation"*
 
-> *"Find me 10 studies on the bidirectional relationship between sleep deprivation and cortisol, including papers that disagree on the primary causal direction."*
+Wait for CLIFF to finish downloading papers (this creates `acquired_pdfs/` and `democritus_csql.sqlite`).
 
-### Step 2 — Run categorical discovery
+### Step 2: Seed the database from PDFs and run discovery
 
-**Automatic** (finds the most recent CSQL database):
 ```bash
-python functorflow_v3/run_causal_discovery.py --skip-cliff --min-confidence 0.10
+python functorflow_v3\seed_csql_from_pdfs.py --run-discovery
 ```
 
-**With an explicit database path:**
+This runs offline — no API key needed. It will:
+- Find the PDFs downloaded by CLIFF
+- Extract causal claims using regex
+- Inject the built-in GLP-1 knowledge base (ensures rich cross-document data)
+- Run Kan Extension + Sheaf Colimit
+- Open the HTML dashboard in your browser
+
+### Step 3 (Alternative): Run just the discovery on an existing database
+
 ```bash
-python functorflow_v3/run_causal_discovery.py \
-  --skip-cliff \
-  --csql path/to/democritus_csql.sqlite \
-  --min-confidence 0.10
+python functorflow_v3\run_glp1_discovery.py --skip-cliff
 ```
 
-**Direct module invocation:**
+Or point at a specific SQLite file:
 ```bash
-python -m functorflow_v3.democritus_discovery \
-  --outdir ./cliff_results_v2 \
-  --query "your query here" \
-  --min-confidence 0.10
-```
-
-### Outputs
-
-Both commands write to a `discovery/` folder alongside the CSQL database:
-
-- `discovery_summary.json` — machine-readable list of all novel claims with confidence scores, bridge nodes, and document support
-- `discovery_dashboard.html` — interactive HTML dashboard opened automatically in your browser
-
----
-
-## Domain Filtering
-
-Before discovery runs, the system auto-detects domain tokens from the user's query and filters out causal edges from off-topic documents (a known Democritus drift issue). For example, a sleep/cortisol query reduced 401 raw edges to 177 relevant ones before discovery ran.
-
-Safety guardrails halt discovery (with a warning) when:
-- 0 documents were retrieved
-- Fewer than 2 documents are present (Sheaf Colimit requires cross-document conflicts)
-- Fewer than 4 domain-filtered edges remain after filtering
-
----
-
-## Theory Background
-
-This project applies two concepts from the course textbook *Categories for AGI* (Mahadevan, 2026):
-
-**Kan Extensions** — The right Kan extension `RanJ F` of the stated-claims functor `F: StatedCat → CausalSpace` along the path inclusion `J: StatedCat ↪ AllPathsCat` entails new claims via universal path composition. The geometric mean is used as the monoidal ⊗ product in the UDM reward semiring (Judo Calculus), giving a conservative lower bound on confidence.
-
-**Sheaf Colimits** — The CSQL database is modelled as a presheaf on the category of document contexts. When two local sections (papers) conflict over the same causal site {A, B}, the gluing axiom fails. The colimit is the universal model A ↔ B that both factor through, resolved with harmonic-mean confidence.
-
-### References
-
-1. S. Mahadevan, *Categories for AGI*, UMass Amherst / Adobe Research, 2026.
-2. S. Mahadevan, [CLIFF_CatAgi](https://github.com/sridharmahadevan/CLIFF_CatAgi), GitHub, 2026.
-3. S. Mahadevan, *Universal Decisions with Kan Extensions*, CMPSCI 692CT lecture slides, 2026. Also: [arXiv:2110.15431](https://arxiv.org/abs/2110.15431)
-4. E. Riehl, *Category Theory in Context*, Dover Publications, 2016.
-
----
-
-## Limitations & Future Work
-
-- **Small corpora**: With 3 documents, Sheaf Colimit has limited material for cross-document conflicts. Larger corpora produce denser conflict structure and higher-confidence loops.
-- **Topic drift**: Democritus can retrieve off-topic documents; the domain filter mitigates this but a stricter containment flag would help.
-- **Chain depth**: The Kan Extension module currently composes only depth-1 paths (A → B → C). Iterated application could discover longer chains, though this risks exponential blowup.
-- **Confidence calibration**: The geometric mean is an approximation. Longer chains with shared evidence nodes would benefit from a more rigorous scoring scheme over the full CSQL graph.
-
----
-
-## Repo Structure
-
-```
-.
-├── functorflow_v3/
-│   ├── democritus_discovery.py     # Kan Extension + Sheaf Colimit engines (NEW)
-│   ├── run_causal_discovery.py     # Discovery orchestrator (NEW)
-│   ├── democritus_agentic.py       # Agentic Democritus runner (modified)
-│   ├── cliff_worker.py             # CLIFF worker process (modified)
-│   └── ...
-├── tests/
-├── examples/
-├── docs/
-├── catagi.pdf                      # Course textbook
-├── CS692CT Report.pdf              # Final project report
-└── README.md
+python functorflow_v3\run_glp1_discovery.py --skip-cliff --csql "path/to/democritus_csql.sqlite"
 ```
 
 ---
 
-*CMPSCI 692CT · Category Theory for AGI · University of Massachusetts Amherst*
+## Expected Output
+
+After running, you'll get a dashboard at `cliff_results_v2/discovery/discovery_dashboard.html` showing:
+
+**Kan Extension claims (examples):**
+```
+[0.92]  glp-1 receptor agonist  –[indirectly_reduces]→  cardiovascular risk
+        via bridge: body weight
+
+[0.89]  glp-1 receptor agonist  –[indirectly_reduces]→  atherosclerosis
+        via bridge: inflammation
+
+[0.88]  obesity  –[indirectly_reduces]→  insulin sensitivity
+        via bridge: inflammation
+```
+
+**Sheaf Colimit feedback loops (examples):**
+```
+[0.82]  inflammation  ↔  insulin resistance
+[0.79]  obesity  ↔  inflammation
+```
+
+None of these were written in any single paper — they were **forced by categorical coherence**.
+
+---
+
+## Connection to Course Material
+
+| Concept Used | Where in Project | Textbook Reference |
+|---|---|---|
+| **Kan Extension** | `_run_kan_extension()` in `democritus_discovery.py` | Chapter: *Kan Extension and Topological Coend Transformers* (p. 143) |
+| **Sheaf / Colimit** | `_run_sheaf_colimit()` in `democritus_discovery.py` | Chapter: *Topos Causal Models* (p. 321) |
+| **Functor** | The mapping from documents → causal claims | Chapter: *Causality from Language* (p. 273) |
+| **cSQL / Topos** | The SQLite schema that stores causal structure | Chapter: *CSQL: Mapping Documents into Topos Causal Model Databases* (p. 371) |
+| **Geometric mean as ⊗** | Confidence propagation in Kan Extension | Chapter: *Judo Calculus* (p. 335) |
+| **Conscious Workspace** | The base CLIFF system | Chapter: *Consciousness* (p. 493) |
+
+---
+
+## Key Parameters
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `--min-confidence` | 0.25 | Minimum confidence for a novel claim to be reported |
+| `--max-kan` | 40 | Maximum Kan Extension claims to return |
+| `--max-colimit` | 20 | Maximum Sheaf Colimit claims to return |
+| `--force-seed` | False | Re-extract from PDFs even if a database already exists |
+| `--no-browser` | False | Don't auto-open the HTML dashboard |
+
+---
+
+## Troubleshooting
+
+**"No .sqlite found"** → Run Step 1 (CLIFF) first, or use `--force-seed` to build from PDFs.
+
+**"0 novel claims"** → Lower `--min-confidence` to 0.10, or check that PDFs were extracted correctly.
+
+**WinError 267 (Windows)** → The `--democritus-assets-dir` fix in `run_glp1_discovery.py` passes an absolute path to avoid this; make sure you're using the updated file.
+
+**"pdfplumber not found"** → Run `pip install pdfplumber`. The built-in knowledge base will still work without it.
