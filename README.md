@@ -1,421 +1,213 @@
-# CLIFF_CatAgi
+# Categorical Causal Discovery — Cross-Document Extension for CLIFF/Democritus
 
-`CLIFF_CatAgi` is a textbook-centric version of CLIFF:
-the **Conscious Layer Interface to Functor Flow** for *Categories for AGI*.
-It teaches ideas from the book through runnable demos, project suggestions,
-product/company feedback views, Democritus synthesis, SEC workflow analysis,
-and book annotations.
+> **CMPSCI 692CT: Category Theory for AGI · University of Massachusetts Amherst**
+> Forked from [sridharmahadevan/CLIFF_CatAgi](https://github.com/sridharmahadevan/CLIFF_CatAgi)
 
-The key product idea is simple:
+---
 
-- every route should point back to the textbook
-- textbook chapters should connect to runnable demos
-- demos should connect to code snippets and project ideas
-- external research engines should be optional integrations, not hidden assumptions
+## What This Project Does
 
-This repo is intended to be the clean public-facing interface layer.
+This repository extends the [CLIFF](https://github.com/sridharmahadevan/CLIFF_CatAgi) (Conscious Layer Interface in FunctorFlow) system with a **categorical causal discovery layer** that sits on top of the Democritus agent.
 
-## Core Product Picture
+CLIFF's Democritus subsystem retrieves scientific documents and extracts structured causal relationships into a SQLite database (CSQL). It answers: *which causal claims are explicitly stated across documents?*
 
-CLIFF is best understood as a conscious interface sitting on top of a deeper
-Functor Flow causal engine.
+This extension answers the follow-up question:
 
-In practice, many apparently different queries collapse toward the same deeper
-pattern:
+> **Given the claims documents do state, what additional causal relationships are mathematically forced to exist — but no document ever directly wrote down?**
 
-- retrieve evidence
-- build causal state
-- synthesize a best-so-far answer
-- refine, compare, or visualize that answer
+Two category-theoretic mechanisms close this gap:
 
-That is why Democritus matters so much in this repo. Multi-study synthesis,
-company similarity, and several evidence-heavy routes eventually rely on the
-same causal-state-building machinery.
+### 1. Kan Extension
+For every two-step chain **A → B → C** supported by retrieved papers, the system infers **A → C** with a conservative geometric-mean confidence, even if no paper ever stated that connection directly. This is the right Kan extension of the stated-claims functor along the path inclusion functor.
 
-## Runtime Expectations
+```
+conf(A → C) = √(conf(A → B) × conf(B → C))
+```
 
-CLIFF now exposes both execution depth and route latency more explicitly in the
-GUI.
+### 2. Sheaf Colimit
+When one paper asserts **A → B** and another asserts **B → A**, these are conflicting local sections of the causal presheaf over the site {A, B}. Rather than discarding one, the system resolves the contradiction as a **bidirectional feedback loop A ↔ B** using harmonic-mean confidence.
 
-- `Quick answer`
-  lightweight routes such as textbook lookup and some filing-oriented lookups
-- `Longer analysis`
-  routes such as product feedback that do structured evidence synthesis
-- `Deep research`
-  routes such as `democritus` and `company_similarity`, which may still take
-  several minutes even in `quick` mode
+```
+conf(A ↔ B) = 2pq / (p + q)
+```
 
-`Quick` vs `deep` is therefore not the same as “fast” vs “slow.”
-For the deep-research routes, `quick` means an earlier, lighter, best-so-far
-answer path, not an instant answer.
+---
 
-## Core Design
+## Key Results
 
-The major architectural shift from the earlier `FunctorFlow_v1` release is that
-CLIFF now treats Kan-extension-style attention and diffusion-style gluing as
-agentic workflow principles, not only as model-level ideas.
+Applied to a corpus of three documents on **sleep deprivation, cortisol, and related conditions**:
 
-The first public-facing note for that transition is:
+| Metric | Value |
+|---|---|
+| Source documents | 3 |
+| Raw causal edges (pre-filter) | 401 |
+| Domain-filtered edges | 177 |
+| Edges with ≥1 successor | 83 / 177 (47%) |
+| **Kan Extension novel claims** | **40** |
+| **Sheaf Colimit feedback loops** | **20** |
+| **Total novel claims** | **60** |
 
-- `docs/agentic_kan_architecture.md`
+Example Kan Extension claim (never stated in any source document):
+```
+[0.33] childhood obesity –[increases]→ insulin resistance –[causes]→ higher blood pressure
+```
 
-The current design note for the next Democritus/CLIFF synthesis milestone is:
+Example Sheaf Colimit feedback loop:
+```
+[0.44] sleep deprivation ↔ cognitive performance in adults
+```
 
-- `docs/homotopy_aware_synthesis.md`
+---
 
-If you are new to the repo, start here first:
+## Architecture
 
-- `docs/first_10_minutes.md`
+```
+User Query (CLIFF Browser)
+        ↓
+   CLIFF Router
+        ↓
+  Democritus Agent
+  ├── Downloads & parses papers
+  ├── Extracts causal claims
+  └── Writes → democritus_csql.sqlite
+        ↓
+  run_causal_discovery.py          ← NEW (this extension)
+  ├── Locates CSQL database
+  ├── Reads run metadata & query
+  ├── Applies domain filter
+  ├── democritus_discovery.py      ← NEW (this extension)
+  │   ├── Kan Extension engine
+  │   └── Sheaf Colimit engine
+  └── Writes → discovery_dashboard.html + discovery_summary.json
+```
 
-## What This Repo Contains
+### New Files Added
 
-- `functorflow_v3/`: the current CLIFF package and route logic
-- `tests/`: regression coverage for routing, course demos, textbook backstops, and major workflows
-- `catagi.pdf`: the textbook artifact used for chapter recommendations
+| File | Purpose |
+|---|---|
+| `functorflow_v3/democritus_discovery.py` | Core categorical modules: Kan Extension, Sheaf Colimit, SQLite reader, JSON/HTML output |
+| `functorflow_v3/run_causal_discovery.py` | Orchestrator: locates CSQL database, reads run metadata, launches discovery, opens browser |
 
-## Supported CLIFF Modes
+Modified to integrate with the new files: `query_router_agentic.py`, `democritus_batch_agentic.py`, `democritus_agentic.py`, `cliff_worker.py`.
 
-- `course_demo`: book-guided course demos, project ideas, learning guides, and Julia/PyTorch code snippets
-- `democritus`: multi-document synthesis with textbook backstops
-- `basket_rocket_sec`: SEC workflow analysis with textbook backstops
-- `company_similarity`: cross-company diffusion comparison with textbook backstops
-- `product_feedback`: review synthesis with textbook backstops
-- `culinary_tour`: consciousness-style itinerary demos, also tied back to the textbook
+---
 
-## Route Integration Table
-
-| Route | What it does | Works with core repo only? | Optional repos / runtimes |
-| --- | --- | --- | --- |
-| `course_demo` | Runs textbook-linked demos, recommendations, project ideas, and code snippets | Partly | `Category-Theory-for-AGI-UMass-CMPSCI-692CT`; for Julia paths also `FunctorFlow.jl`, optionally `Julia FF`, and a Julia runtime |
-| `democritus` | Finds studies or documents, runs synthesis, and builds corpus-level claims dashboards | No | `Democritus_OpenAI`; OpenAI API access for LLM-backed stages |
-| `basket_rocket_sec` | Recovers workflows from SEC filings and builds BASKET/ROCKET-style dashboards | No | `BASKET`, `brand_democritus_block_denoise` |
-| `company_similarity` | Compares companies through the diffusion/manifold pipeline and links back to the textbook | No | `brand_democritus_block_denoise` and a Python environment with its dependencies |
-| `product_feedback` | Builds product-feedback syntheses, workflows, and causal hypotheses with textbook pointers | Mostly | No extra repo for the basic route; external review sources may still matter depending on retrieval path |
-| `culinary_tour` | Demonstrates conscious message-passing through itinerary planning with textbook backstops | Yes | None for the core demo path |
-
-Quick rule of thumb:
-
-- start with `culinary_tour`, `course_demo`, or lightweight textbook-guided prompts if you want the fastest first run
-- try `product_feedback` next if you want a medium-weight route that still feels interactive
-- add `democritus` and `company_similarity` when you want the full deep-research workflow stack
-- use `basket_rocket_sec` when you specifically want filing workflow recovery
-
-## Install
+## Installation
 
 ```bash
+git clone https://github.com/hacherio/Categorical-CrossDoc-Democritus-Extension
+cd Categorical-CrossDoc-Democritus-Extension
+
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+
 pip install -r requirements.txt
 pip install -e .
 ```
 
-Run CLIFF:
+---
+
+## Usage
+
+### Step 1 — Run CLIFF and submit a query
 
 ```bash
-python3 -m functorflow_v3.cliff --outdir /tmp/cliff-session
+python -m functorflow_v3.cliff \
+  --outdir ./cliff_results_v2 \
+  --course-repo-root "/path/to/Category-Theory-for-AGI-UMass-CMPSCI-692CT"
 ```
 
-### Saved Runs And Session Restore
+Then open the CLIFF browser UI and submit your query, for example:
 
-CLIFF now treats the `--outdir` tree as a reusable run workspace, not just a
-temporary dump folder.
+> *"Find me 10 studies on the bidirectional relationship between sleep deprivation and cortisol, including papers that disagree on the primary causal direction."*
 
-- each submitted query gets its own run folder under the chosen `--outdir`
-- CLIFF writes a `cliff_run_record.json` alongside the route artifacts for that
-  run
-- when you open CLIFF again, the launcher rescans the current run root, the
-  default archive root at `~/Downloads/CLIFF_runs_archive`, and any extra paths
-  listed in `CLIFF_RUN_ARCHIVE_ROOTS`
-- saved runs show up in the archived-runs panel, where you can reopen the old
-  artifact or queue the same query again as a rerun
+### Step 2 — Run categorical discovery
 
-In practice, this means you can stop and restart CLIFF without losing the runs
-you already completed, and you can use older runs as checkpoints for later
-comparison or follow-up work.
-
-Export a compact public Democritus example bundle from a saved run:
-
+**Automatic** (finds the most recent CSQL database):
 ```bash
-python3 -m functorflow_v3.democritus_example_export \
-  --run-dir /path/to/democritus \
-  --output-dir examples/democritus/my_saved_run \
-  --document-ranks 2,3,4,5,6 \
-  --copy-manifold-images 3 \
-  --force
+python functorflow_v3/run_causal_discovery.py --skip-cliff --min-confidence 0.10
 ```
 
-This keeps the GitHub-facing artifact small by exporting query metadata,
-selected-document summaries, stage timing summaries, and a few representative
-images while excluding the heavyweight PDFs, sweep outputs, PKL state, SQLite
-bundles, and large report assets from the original run. Use
-`--document-ranks` when you want a curated public subset rather than the full
-retrieval set from the saved run.
-
-Export a compact public BASKET/ROCKET example bundle from legacy company artifacts:
-
+**With an explicit database path:**
 ```bash
-python3 -m functorflow_v3.basket_rocket_example_export \
-  --company adobe \
-  --extractor-dir ../BASKET/outputs/tenk_rawpdf_fullpanel_monitored \
-  --reranking-dir ../BASKET/outputs/rocket_fullpanel_financial_real \
-  --company-viz-dir ../BASKET/outputs/rocket_company_viz_financial_real \
-  --psr-company-dir ../BASKET/outputs/psr_rocket_variant_comparison_20260322/companies \
-  --diffusion-dir ../brand_democritus_block_denoise_complete/outputs/adobe/temporal_denoiser/infer \
-  --radar-dir ../brand_democritus_block_denoise_complete/outputs/adobe/survival_radar \
-  --output-dir examples/basket_rocket/adobe_financial_reranking \
-  --force
+python functorflow_v3/run_causal_discovery.py \
+  --skip-cliff \
+  --csql path/to/democritus_csql.sqlite \
+  --min-confidence 0.10
 ```
 
-This keeps the GitHub-facing artifact small by exporting a company-level
-snapshot: sanitized extractor metadata, reranking summaries, representative
-changed statements, GitHub-renderable visualization summaries, and selected
-diffusion/radar dashboards while excluding the raw PDFs, full JSONL panels,
-and bulky intermediate outputs.
-
-## Install Matrix
-
-Use the same base Python environment for every setup:
-
+**Direct module invocation:**
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-pip install -e .
+python -m functorflow_v3.democritus_discovery \
+  --outdir ./cliff_results_v2 \
+  --query "your query here" \
+  --min-confidence 0.10
 ```
 
-### 1. Core Only
+### Outputs
 
-Best for:
+Both commands write to a `discovery/` folder alongside the CSQL database:
 
-- router testing
-- textbook backstops
-- product feedback demos
-- culinary tour demos
-- basic CLIFF UI checks
+- `discovery_summary.json` — machine-readable list of all novel claims with confidence scores, bridge nodes, and document support
+- `discovery_dashboard.html` — interactive HTML dashboard opened automatically in your browser
 
-Needed:
+---
 
-- this repo
-- `catagi.pdf` in the repo root, or `CLIFF_BOOK_PDF_PATH`
+## Domain Filtering
 
-Useful checks:
+Before discovery runs, the system auto-detects domain tokens from the user's query and filters out causal edges from off-topic documents (a known Democritus drift issue). For example, a sleep/cortisol query reduced 401 raw edges to 177 relevant ones before discovery ran.
 
-```bash
-python3 -m unittest tests.test_textbook_backstop tests.test_query_router_agentic tests.test_cliff
+Safety guardrails halt discovery (with a warning) when:
+- 0 documents were retrieved
+- Fewer than 2 documents are present (Sheaf Colimit requires cross-document conflicts)
+- Fewer than 4 domain-filtered edges remain after filtering
+
+---
+
+## Theory Background
+
+This project applies two concepts from the course textbook *Categories for AGI* (Mahadevan, 2026):
+
+**Kan Extensions** — The right Kan extension `RanJ F` of the stated-claims functor `F: StatedCat → CausalSpace` along the path inclusion `J: StatedCat ↪ AllPathsCat` entails new claims via universal path composition. The geometric mean is used as the monoidal ⊗ product in the UDM reward semiring (Judo Calculus), giving a conservative lower bound on confidence.
+
+**Sheaf Colimits** — The CSQL database is modelled as a presheaf on the category of document contexts. When two local sections (papers) conflict over the same causal site {A, B}, the gluing axiom fails. The colimit is the universal model A ↔ B that both factor through, resolved with harmonic-mean confidence.
+
+### References
+
+1. S. Mahadevan, *Categories for AGI*, UMass Amherst / Adobe Research, 2026.
+2. S. Mahadevan, [CLIFF_CatAgi](https://github.com/sridharmahadevan/CLIFF_CatAgi), GitHub, 2026.
+3. S. Mahadevan, *Universal Decisions with Kan Extensions*, CMPSCI 692CT lecture slides, 2026. Also: [arXiv:2110.15431](https://arxiv.org/abs/2110.15431)
+4. E. Riehl, *Category Theory in Context*, Dover Publications, 2016.
+
+---
+
+## Limitations & Future Work
+
+- **Small corpora**: With 3 documents, Sheaf Colimit has limited material for cross-document conflicts. Larger corpora produce denser conflict structure and higher-confidence loops.
+- **Topic drift**: Democritus can retrieve off-topic documents; the domain filter mitigates this but a stricter containment flag would help.
+- **Chain depth**: The Kan Extension module currently composes only depth-1 paths (A → B → C). Iterated application could discover longer chains, though this risks exponential blowup.
+- **Confidence calibration**: The geometric mean is an approximation. Longer chains with shared evidence nodes would benefit from a more rigorous scoring scheme over the full CSQL graph.
+
+---
+
+## Repo Structure
+
+```
+.
+├── functorflow_v3/
+│   ├── democritus_discovery.py     # Kan Extension + Sheaf Colimit engines (NEW)
+│   ├── run_causal_discovery.py     # Discovery orchestrator (NEW)
+│   ├── democritus_agentic.py       # Agentic Democritus runner (modified)
+│   ├── cliff_worker.py             # CLIFF worker process (modified)
+│   └── ...
+├── tests/
+├── examples/
+├── docs/
+├── catagi.pdf                      # Course textbook
+├── CS692CT Report.pdf              # Final project report
+└── README.md
 ```
 
-### 2. Course Demo Setup
+---
 
-Best for:
-
-- textbook-guided course demos
-- project ideas
-- learning guides
-- PyTorch snippet walkthroughs
-
-Also needed:
-
-- `Category-Theory-for-AGI-UMass-CMPSCI-692CT`
-
-Resolution options:
-
-- sibling repo beside `CLIFF_CatAgi`
-- `third_party/Category-Theory-for-AGI-UMass-CMPSCI-692CT`
-- `CLIFF_COURSE_REPO_ROOT=/path/to/Category-Theory-for-AGI-UMass-CMPSCI-692CT`
-
-Useful checks:
-
-```bash
-python3 -m unittest tests.test_course_demo_agentic tests.test_query_router_agentic
-```
-
-### 3. Democritus Setup
-
-Best for:
-
-- multi-document synthesis
-- study retrieval and corpus gluing
-- single-document analysis from a direct article or PDF URL
-- single-document analysis from a local uploaded PDF path
-- CSQL-backed textbook-grounded analysis
-- building the causal substrate that several heavier CLIFF routes depend on
-
-Also needed:
-
-- `Democritus_OpenAI`
-- OpenAI API access for the LLM-backed steps
-
-Resolution options:
-
-- sibling repo beside `CLIFF_CatAgi`
-- `third_party/Democritus_OpenAI`
-- `CLIFF_DEMOCRITUS_ROOT=/path/to/Democritus_OpenAI`
-
-Optional seed corpus path:
-
-- `CLIFF_DEMOCRITUS_PDF_ROOT=/path/to/pdf/root`
-
-Useful checks:
-
-```bash
-python3 -m unittest tests.test_democritus_agentic tests.test_democritus_query_agentic
-```
-
-### 4. BASKET/ROCKET And Company Similarity Setup
-
-Best for:
-
-- SEC workflow recovery
-- company diffusion comparisons
-- finance-oriented dashboards
-- testing the deeper route stack that eventually leans on Democritus-style
-  causal-state construction
-
-Also needed:
-
-- `BASKET`
-- `brand_democritus_block_denoise`
-
-Resolution options:
-
-- sibling repos beside `CLIFF_CatAgi`
-- `third_party/BASKET`
-- `third_party/brand_democritus_block_denoise`
-- env vars:
-  - `CLIFF_BASKET_ROOT`
-  - `CLIFF_BRAND_PANEL_ROOT`
-  - `CLIFF_BRAND_PIPELINE_PYTHON` if the company-similarity backend needs a dedicated interpreter
-
-Useful checks:
-
-```bash
-python3 -m unittest tests.test_basket_rocket_sec_agentic tests.test_query_router_agentic tests.test_cliff
-```
-
-### 5. Julia Setup
-
-Best for:
-
-- Julia KET demos
-- Julia causal-semantics demos
-- side-by-side Julia/Python educational comparisons
-
-Also needed:
-
-- `FunctorFlow.jl`
-- optionally `Julia FF`
-- a working Julia runtime
-
-Resolution options:
-
-- sibling repos beside `CLIFF_CatAgi`
-- `third_party/FunctorFlow.jl`
-- `third_party/Julia FF`
-- env vars:
-  - `CLIFF_JULIA_REPO_ROOT`
-  - `CLIFF_JULIA_EXAMPLES_ROOT`
-  - `CLIFF_JULIA_DEPOT_PATH`
-  - `CLIFF_JULIA_BIN`
-  - `CLIFF_JULIAUP_BIN`
-
-Useful checks:
-
-```bash
-python3 -m unittest tests.test_course_demo_agentic
-```
-
-### 6. Full Textbook Interface Setup
-
-Best for:
-
-- the full CLIFF_CatAgi vision
-- private multi-machine testing before public release
-
-Needed:
-
-- this repo
-- `catagi.pdf`
-- course repo
-- Democritus repo
-- BASKET/ROCKET-related repos
-- Julia repos if you want both language paths
-
-Recommended smoke queries:
-
-- `Explain the Geometric Transformer on the Sudoku problem`
-- `What demo should I use for causality?`
-- `Show me the Julia version of KET`
-- `How similar is Adobe to Nike?`
-- `Give me 5 studies of global warming and synthesize their joint claims`
-- `How easy is it to drive a Tesla Model 3?`
-
-## Current UX Notes
-
-- The launcher banner now expands `CLIFF` as `Conscious Layer Interface to Functor Flow`.
-- `Democritus` quick mode is intended to return a useful provisional answer
-  sooner and then improve it as more evidence is processed.
-- `Company similarity` now reports ETA, parallelism, and inner Democritus build
-  stages, but it remains the slowest major route and should still be treated as
-  deep research.
-
-## Optional Integrations
-
-`CLIFF_CatAgi` is designed to work even when some supporting repos are absent.
-Routes should degrade gracefully and explain what is missing.
-
-Optional sibling or `third_party/` repos:
-
-- `Democritus_OpenAI`
-- `BASKET`
-- `brand_democritus_block_denoise`
-- `Category-Theory-for-AGI-UMass-CMPSCI-692CT`
-- `FunctorFlow.jl`
-- `Julia FF`
-
-The resolver module is:
-
-- `functorflow_v3/repo_layout.py`
-
-It supports either:
-
-1. bundling dependencies under `third_party/`
-2. keeping them as sibling repos beside `CLIFF_CatAgi`
-3. overriding them with environment variables
-
-Environment variables:
-
-- `CLIFF_BOOK_PDF_PATH`
-- `CLIFF_DEMOCRITUS_ROOT`
-- `CLIFF_DEMOCRITUS_PDF_ROOT`
-- `CLIFF_BASKET_ROOT`
-- `CLIFF_BRAND_PANEL_ROOT`
-- `CLIFF_BRAND_PIPELINE_PYTHON`
-- `CLIFF_COURSE_REPO_ROOT`
-- `CLIFF_JULIA_REPO_ROOT`
-- `CLIFF_JULIA_EXAMPLES_ROOT`
-- `CLIFF_JULIA_DEPOT_PATH`
-- `CLIFF_JULIA_BIN`
-- `CLIFF_JULIAUP_BIN`
-
-## Suggested Public Release Strategy
-
-For a first GitHub release, treat this repo as the interface layer and keep the
-heavier engines optional:
-
-- CLIFF explains concepts and routes queries
-- the textbook provides conceptual grounding
-- external repos provide specialized execution backends
-
-That keeps setup lighter and makes the architecture much easier to explain.
-
-## Smoke Tests
-
-```bash
-python3 -m unittest tests.test_textbook_backstop tests.test_query_router_agentic tests.test_cliff
-```
-
-For broader local verification:
-
-```bash
-python3 -m unittest
-```
+*CMPSCI 692CT · Category Theory for AGI · University of Massachusetts Amherst*
