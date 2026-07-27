@@ -6,6 +6,8 @@
 
 ## What This Project Does (Plain English)
 
+[View the full presentation (PDF)](./CS 692CT Presentation.pdf)
+
 Imagine you have three research papers on GLP-1 drugs (weight-loss drugs like Ozempic):
 
 - **Paper 1** says: *"GLP-1 drugs reduce inflammation."*
